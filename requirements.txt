@@ -1,0 +1,8 @@
+pandas>=2.0
+numpy>=1.24
+requests>=2.28
+PyYAML>=6.0
+pytest>=7.0
+# 선택: 데이터 소스
+# pykrx>=1.0.45
+# finance-datareader>=0.9.90

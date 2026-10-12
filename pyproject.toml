@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pullback-trader"
+version = "0.1.0"
+description = "국내주식 눌림목 분할매수(1:2:3:4) 데이트레이딩/스윙 스캐너·백테스터·주문표 생성기"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "requests>=2.28",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+krx = ["pykrx>=1.0.45"]
+fdr = ["finance-datareader>=0.9.90"]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+pullback = "pullback_trader.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["pullback_trader*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

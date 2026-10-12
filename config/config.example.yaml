@@ -1,0 +1,139 @@
+# pullback-trader 설정 예시. 복사해서 config/config.yaml 로 저장하면 자동 로드됩니다.
+# 모든 키는 pullback_trader/config.py 의 dataclass 기본값을 덮어씁니다 (알 수 없는 키는 오류).
+
+mode: swing            # swing(일봉 스윙) | day(분봉 데이트레이딩)
+
+universe:
+  markets: [KOSPI, KOSDAQ]
+  min_market_cap: 10000000000     # 시가총액 100억 원 이상 (요구사항). 사실상 전 종목이 통과하므로 아래 거래대금이 실질 필터
+  min_avg_turnover: 3000000000    # 20일 평균 거래대금 30억 원 이상 (단타 유동성). 0 이면 미적용
+  avg_turnover_days: 20
+  min_price: 1000                 # 동전주 제외
+  max_price: 0
+  min_listing_days: 60            # 신규상장 제외
+  exclusion_file: config/exclusions.csv   # 수동 제외 (관리종목/투자경고 등 HTS 에서 내보낸 코드)
+  max_candidates: 300             # 거래대금 상위 N 종목만 스캔
+
+swing:                            # 일봉 눌림목
+  trend_ma_fast: 20
+  trend_ma_slow: 60
+  impulse_lookback: 30            # 최근 30봉 안에 직전 고점
+  impulse_max_bars: 25
+  impulse_min_gain_pct: 10.0      # 저점→고점 10% 이상 상승파동
+  pullback_min_bars: 2
+  pullback_max_bars: 12
+  pullback_min_depth_pct: 3.0
+  pullback_max_depth_pct: 20.0
+  retrace_min: 0.236              # 피보나치 되돌림 23.6%~61.8%
+  retrace_max: 0.618
+  volume_ratio_max: 0.85          # 조정 거래량 / 상승 거래량
+  support_mas: [5, 10, 20]
+  support_tolerance_pct: 2.0
+  must_hold_ma: 20                # 20일선 아래 종가 마감이면 무효
+  entry_mode: confirm             # confirm(반등 확인봉 후 진입) | anticipate(지지선 예약매수)
+  trigger_close_above_prev_high: true
+  trigger_volume_ratio: 1.2
+  stop_buffer_pct: 1.0            # 손절 = 눌림 저점 −1%
+  stop_below_last_pct: 1.5        # 손절은 4차가보다 최소 1.5% 아래
+  first_tranche_market: false     # 1차를 다음날 시가 시장가로 살지
+  target_r_multiple: 2.0
+  partial_exit_at_impulse_high: 0.5
+  move_stop_to_breakeven_after_t1: true
+  max_hold_days: 10
+  ladder_valid_days: 3
+
+day:                              # 분봉 데이트레이딩
+  bar_minutes: 3
+  impulse_min_gain_pct: 3.0       # 당일 저점→고점 3% 이상
+  impulse_max_bars: 40
+  gap_up_max_pct: 15.0
+  pullback_min_bars: 2
+  pullback_max_bars: 20
+  pullback_min_depth_pct: 1.0
+  pullback_max_depth_pct: 7.0
+  retrace_min: 0.236
+  retrace_max: 0.618
+  volume_ratio_max: 0.8
+  support_mas: [5, 20]
+  support_tolerance_pct: 1.0
+  require_above_vwap: true
+  entry_mode: confirm
+  trigger_close_above_prev_high: true
+  trigger_volume_ratio: 1.2
+  first_entry_time: "09:10"       # 시초가 변동 구간 회피
+  last_entry_time: "14:30"        # 이후 신규 진입 금지
+  force_exit_time: "15:15"        # 장마감 동시호가(15:20) 전 전량 청산
+  stop_buffer_pct: 0.5
+  stop_below_last_pct: 0.5
+  first_tranche_market: true
+  target_r_multiple: 1.5
+  partial_exit_at_impulse_high: 0.5
+  move_stop_to_breakeven_after_t1: true
+  ladder_valid_minutes: 60
+
+ladder:                           # 분할매수 사다리
+  weights: [1, 2, 3, 4]           # 1:2:3:4
+  step_mode: range                # range(1차가~눌림저점 균등) | pct | atr | support
+  step_pct: [0.0, 1.5, 3.0, 4.5]  # pct 모드: 1차가 대비 하락률
+  step_atr: [0.0, 0.5, 1.0, 1.5]  # atr 모드
+  min_qty_per_tranche: 1
+
+risk:
+  account_equity: 10000000        # 계좌 자산 1,000만 원
+  risk_per_trade_pct: 1.0         # 4차까지 전량 체결 후 손절 시 최대 손실 = 계좌의 1%
+  max_position_pct: 30.0          # 종목당 최대 투자금 30%
+  max_open_positions: 3
+  daily_loss_limit_pct: 3.0       # 당일 −3% 면 신규 진입 중단
+  max_consecutive_losses: 3
+  margin_rate_pct: 100.0          # 증거금 100% (미수 금지) — HTS 계좌 설정과 맞출 것
+
+cost:                             # 2026년 기준
+  commission_pct: 0.015           # 편도 수수료(%). 본인 계좌 요율로 수정 (미래에셋 다이렉트 우대 시 ≈0.0036)
+  sell_tax_pct_kospi: 0.20        # 거래세 0.05 + 농특세 0.15
+  sell_tax_pct_kosdaq: 0.20
+  slippage_ticks: 1
+
+data:
+  provider: csv                   # csv | naver | pykrx | fdr | kis
+  csv_dir: data/csv
+  cache_dir: data/cache
+  lookback_days: 300
+  request_interval_sec: 0.3
+
+broker:
+  mode: sheet                     # sheet(주문표 출력, 미래에셋 HTS 수동주문) | paper(모의) | kis(한국투자증권 자동)
+  kis:
+    app_key: ""                   # 환경변수 KIS_APP_KEY 권장
+    app_secret: ""                # 환경변수 KIS_APP_SECRET 권장
+    account_no: ""                # 8자리 종합계좌번호 (또는 10자리 전체)
+    product_code: "01"
+    paper: true                   # 모의투자
+    token_cache: state/kis_token.json
+
+alert:
+  console: true
+  telegram_bot_token: ""          # 환경변수 TELEGRAM_BOT_TOKEN
+  telegram_chat_id: ""            # 환경변수 TELEGRAM_CHAT_ID
+
+output_dir: output
+state_dir: state
+
+# KRX 휴장일 (매년 KRX 공지로 갱신). 2026년 예정일:
+holidays:
+  - "2026-01-01"
+  - "2026-02-16"
+  - "2026-02-17"
+  - "2026-02-18"
+  - "2026-03-02"
+  - "2026-05-01"
+  - "2026-05-05"
+  - "2026-05-25"
+  - "2026-06-03"
+  - "2026-08-17"
+  - "2026-09-24"
+  - "2026-09-25"
+  - "2026-09-28"
+  - "2026-10-05"
+  - "2026-10-09"
+  - "2026-12-25"
+  - "2026-12-31"
