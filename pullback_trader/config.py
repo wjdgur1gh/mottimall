@@ -20,11 +20,19 @@ import yaml
 @dataclass
 class UniverseConfig:
     markets: List[str] = field(default_factory=lambda: ["KOSPI", "KOSDAQ"])
-    # 사용자가 요구한 기준: 시가총액 100억 원 이상
-    min_market_cap: int = 10_000_000_000
-    # 권장 추가 기준: 20일 평균 거래대금 (단타 유동성 확보). 0이면 미적용
-    min_avg_turnover: int = 3_000_000_000
+    # 시가총액 하한. 100억은 상장사 거의 전부가 통과해 의미가 없으므로 1,000억을 권장 기본값으로 둔다
+    # (관리종목·거래정지·투자경고 지정이 집중되는 소형주 구간 회피, 기관·외국인 수급 존재, 호가 두께 확보).
+    # 더 많은 소형주를 원하면 500억까지만 낮출 것. 0이면 미적용.
+    min_market_cap: int = 100_000_000_000
+    # 20일 평균 거래대금 하한 (실질 유동성 필터). 스윙 50억: 300만 원 사다리 4건 + 시장가 청산이 호가 1~2틱 안에서 처리됨.
+    # 계좌가 5,000만 원 이상이면 100억 이상으로 올릴 것 (포지션이 일 거래대금의 0.5% 를 넘지 않게). 0이면 미적용
+    min_avg_turnover: int = 5_000_000_000
     avg_turnover_days: int = 20
+    # 데이트레이딩 전용 상향 기준 (0이면 위 값과 동일). 분 단위 체결·15:15 시장가 청산에는 더 두꺼운 호가가 필요하다
+    day_min_market_cap: int = 0
+    day_min_avg_turnover: int = 10_000_000_000
+    # 데이트레이딩: 신호 시점까지 당일 누적 거래대금 하한 (오늘 거래가 죽은 종목 제외). 0이면 미적용
+    day_min_intraday_turnover: int = 2_000_000_000
     # 저가주 제외 (호가단위 1원 구간은 스프레드 비용이 큼)
     min_price: int = 1_000
     max_price: int = 0  # 0 = 제한 없음
@@ -134,7 +142,10 @@ class DayPullbackConfig:
 # --------------------------------------------------------------------------------------
 @dataclass
 class LadderConfig:
-    weights: List[float] = field(default_factory=lambda: [1, 2, 3, 4])
+    # 분할 비중 (1차→4차). 기본 4:3:2:1 정피라미드: 확인봉 근처(승률 높은 얕은 눌림)에서 가장 많이 사고,
+    # 깊이 밀릴수록(확인이 틀려가는 구간) 적게 산다. 1:2:3:4 역피라미드는 이기는 거래에서는 10~30% 수량만 들고
+    # 지는 거래에서는 항상 100% 수량을 들게 되는 음의 비대칭 구조라 권장하지 않는다 (설정은 가능, 경고 표시).
+    weights: List[float] = field(default_factory=lambda: [4, 3, 2, 1])
     step_mode: str = "range"            # range(1차가~눌림저점 균등) | pct | atr | support
     step_pct: List[float] = field(default_factory=lambda: [0.0, 1.5, 3.0, 4.5])
     step_atr: List[float] = field(default_factory=lambda: [0.0, 0.5, 1.0, 1.5])

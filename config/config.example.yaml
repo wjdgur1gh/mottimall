@@ -5,9 +5,12 @@ mode: swing            # swing(일봉 스윙) | day(분봉 데이트레이딩)
 
 universe:
   markets: [KOSPI, KOSDAQ]
-  min_market_cap: 10000000000     # 시가총액 100억 원 이상 (요구사항). 사실상 전 종목이 통과하므로 아래 거래대금이 실질 필터
-  min_avg_turnover: 3000000000    # 20일 평균 거래대금 30억 원 이상 (단타 유동성). 0 이면 미적용
+  min_market_cap: 100000000000    # 시가총액 1,000억 원 이상 (권장). 100억은 전 종목이 통과해 무의미. 최저 500억까지만 낮출 것
+  min_avg_turnover: 5000000000    # 20일 평균 거래대금 50억 원 이상 (스윙). 계좌 5,000만 원 이상이면 100억
   avg_turnover_days: 20
+  day_min_market_cap: 0           # 데이트레이딩 시총 하한 (0 = min_market_cap 과 동일)
+  day_min_avg_turnover: 10000000000   # 데이트레이딩 20일 평균 거래대금 100억 이상 (분 단위 체결·시장가 청산용 호가 두께)
+  day_min_intraday_turnover: 2000000000   # 데이트레이딩: 신호 시점까지 당일 누적 거래대금 20억 이상
   min_price: 1000                 # 동전주 제외
   max_price: 0
   min_listing_days: 60            # 신규상장 제외
@@ -72,7 +75,8 @@ day:                              # 분봉 데이트레이딩
   ladder_valid_minutes: 60
 
 ladder:                           # 분할매수 사다리
-  weights: [1, 2, 3, 4]           # 1:2:3:4
+  weights: [4, 3, 2, 1]           # 4:3:2:1 정피라미드 (권장). 확인봉 근처에서 많이, 깊이 밀릴수록 적게.
+                                  # 1:2:3:4 역피라미드는 이기는 거래는 작게·지는 거래는 전량이 되어 비권장 (설정 시 경고)
   step_mode: range                # range(1차가~눌림저점 균등) | pct | atr | support
   step_pct: [0.0, 1.5, 3.0, 4.5]  # pct 모드: 1차가 대비 하락률
   step_atr: [0.0, 0.5, 1.0, 1.5]  # atr 모드

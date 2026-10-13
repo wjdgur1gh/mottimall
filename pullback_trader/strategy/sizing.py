@@ -1,7 +1,8 @@
 """1:2:3:4 분할매수 사다리와 리스크 기반 수량 산정.
 
 원칙
-- 총 10단위 중 1차 10%, 2차 20%, 3차 30%, 4차 40% (설정 가능)
+- 기본 비중 4:3:2:1 (1차 40%, 2차 30%, 3차 20%, 4차 10%). 확인봉 근처에서 가장 많이, 깊이 밀릴수록 적게.
+  (1:2:3:4 등 역피라미드도 설정 가능하지만 경고를 표시한다)
 - 사다리 가격은 1차가(현재가/지지선) 에서 눌림 저점 쪽으로 내려가며 배치 (range 모드)
 - 손절가는 눌림 저점 아래(버퍼) 이면서 4차가보다 최소 N% 아래
 - 수량은 '4차까지 전부 체결된 뒤 손절' 이라는 최악 시나리오 손실이 계좌의 risk_per_trade_pct 가 되도록 산정
@@ -58,6 +59,7 @@ class OrderPlan:
     warnings: List[str] = field(default_factory=list)
     score: float = 0.0
     first_tranche_market: bool = False
+    risk_by_fill: List[float] = field(default_factory=list)   # k차까지 체결 후 손절 시 손실 (k=1..4)
 
     @property
     def ok(self) -> bool:
@@ -155,8 +157,19 @@ def build_plan(setup: PullbackSetup, cfg: AppConfig, *, code: str, name: str = "
     tranches = [Tranche(level=i + 1, price=p, qty=q, weight=w / wsum)
                 for i, (p, q, w) in enumerate(zip(prices, qtys, lc.weights))]
     total_amount = sum(t.amount for t in tranches)
-    risk_all = (avg_all - stop_price) * total_qty
-    risk_first = (prices[0] - stop_price) * qtys[0]
+    if total_qty > 0:
+        avg_all = total_amount / total_qty      # 실제 수량 기준 평단
+    risk_by_fill: List[float] = []
+    acc = 0.0
+    for p, q in zip(prices, qtys):
+        acc += (p - stop_price) * q
+        risk_by_fill.append(acc)
+    risk_all = risk_by_fill[-1]
+    risk_first = risk_by_fill[0]
+    w = list(lc.weights)
+    if all(w[i] < w[i + 1] for i in range(len(w) - 1)):
+        warnings.append(f"역피라미드 비중 {':'.join(str(int(x)) if float(x).is_integer() else str(x) for x in w)}: "
+                        "깊이 밀릴수록 더 사는 구조 — 이기는 거래는 1~2차 수량만, 지는 거래는 전량. 4:3:2:1 권장")
 
     # 목표가: 직전 고점과 R 배수 목표 중 가까운 쪽이 1차(부분청산), 먼 쪽이 2차
     t_high = round_to_tick(setup.impulse_high, "down")
@@ -183,5 +196,5 @@ def build_plan(setup: PullbackSetup, cfg: AppConfig, *, code: str, name: str = "
         risk_amount_all=risk_all, risk_pct_all=risk_all / equity * 100 if equity else 0.0,
         risk_amount_first=risk_first, rr_first=rr_first, rr_all=rr_all, breakeven_pct=be,
         valid_until=valid_until, setup=setup, warnings=warnings, score=setup.score,
-        first_tranche_market=bool(pb.first_tranche_market),
+        first_tranche_market=bool(pb.first_tranche_market), risk_by_fill=risk_by_fill,
     )

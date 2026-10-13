@@ -5,8 +5,10 @@
 
 > **먼저 읽어야 할 전제**
 > 1. **미래에셋증권은 개인용 Open API 를 제공하지 않습니다.** 그래서 이 프로그램은 미래에셋 계좌에 직접 주문을 넣지 못하고, 계산 결과를 **주문표**로 내어 카이로스(KAIROS) HTS 에서 입력하는 방식이 기본입니다. 완전 자동화를 원하면 한국투자증권 계좌(KIS Developers)를 추가로 쓰는 어댑터를 포함했습니다. → [docs/KAIROS_WORKFLOW.md](docs/KAIROS_WORKFLOW.md), [docs/KIS_SETUP.md](docs/KIS_SETUP.md)
-> 2. 요구하신 조건 외에 **추가로 확인해야 할 사항**(2026년 세금, 호가단위, VI, 거래시간/NXT, 종목 제외 기준, 1:2:3:4 분할의 리스크 구조, 시가총액 100억 기준의 문제 등)을 [docs/CONSIDERATIONS.md](docs/CONSIDERATIONS.md) 에 정리했습니다. **실매매 전 반드시 읽어 주세요.**
-> 3. 이 소프트웨어는 투자 조언이 아니며, 모든 매매 결과의 책임은 사용자에게 있습니다. 반드시 모의매매/백테스트로 검증 후 소액부터 시작하세요.
+> 2. 요구하신 조건 외에 **추가로 확인해야 할 사항**(2026년 세금, 호가단위, VI, 거래시간/NXT, 종목 제외 기준 등)을 [docs/CONSIDERATIONS.md](docs/CONSIDERATIONS.md) 에 정리했습니다. **실매매 전 반드시 읽어 주세요.**
+> 3. 처음 요구하신 두 기준은 조사 후 **기본값을 바꿨습니다**: 시가총액 100억 → **1,000억 + 거래대금 기준**, 분할 비중 1:2:3:4 → **4:3:2:1**. 이유는 [docs/CONSIDERATIONS.md](docs/CONSIDERATIONS.md) §4·§5. 원래 값으로 되돌리려면 `config.yaml` 에서 `universe.min_market_cap: 10000000000`, `ladder.weights: [1,2,3,4]`.
+> 4. 카이로스 HTS 에 입력할 화면 세팅값(조건검색식·차트 지표·서버 자동주문·계좌 설정)은 [docs/KAIROS_SETTINGS.md](docs/KAIROS_SETTINGS.md) 에 있고, `pullback hts` 로 현재 설정값 기준으로 다시 만들 수 있습니다.
+> 5. 이 소프트웨어는 투자 조언이 아니며, 모든 매매 결과의 책임은 사용자에게 있습니다. 반드시 모의매매/백테스트로 검증 후 소액부터 시작하세요.
 
 ---
 
@@ -14,12 +16,12 @@
 
 | 영역 | 내용 |
 |---|---|
-| 유니버스 | 코스피·코스닥, **시가총액 ≥ 100억**, 20일 평균 거래대금, 주가 하한, 신규상장 제외, 스팩/우선주/ETF/ETN/리츠 제외, 관리종목·투자경고·거래정지 제외, 수동 제외 목록 |
+| 유니버스 | 코스피·코스닥, **시가총액 ≥ 1,000억(권장 기본값)**, 20일 평균 거래대금 ≥ 50억(스윙)/100억(데이), 당일 누적 거래대금 ≥ 20억(데이), 주가 하한, 신규상장 제외, 스팩/우선주/ETF/ETN/리츠 제외, 관리종목·투자경고·거래정지 제외, 수동 제외 목록 |
 | 눌림목 감지 | 추세(MA20>MA60) → 상승 임펄스(≥10%) → 조정(깊이·피보나치 되돌림 23.6~61.8%·봉수) → 거래량 수축 → 이평/VWAP 지지 → 반등 확인봉 트리거 |
-| 분할매수 | 1:2:3:4 사다리 (1차가~눌림 저점 균등 배치 / % / ATR / 지지선 모드), 손절은 눌림 저점 아래 |
+| 분할매수 | **4:3:2:1 사다리(권장 기본값)**, 1:2:3:4 등 임의 비중 설정 가능(역피라미드는 경고). 1차가~눌림 저점 균등 배치 / % / ATR / 지지선 모드, 손절은 눌림 저점 아래 |
 | 수량 산정 | "4차까지 전량 체결 후 손절" 최악 손실 = 계좌의 N% (기본 1%), 종목당 최대 투자금 상한 |
 | 청산 | 손절, 1차 목표(부분청산 + 손절 평단 상향), 2차 목표(R배수), 시간 청산, 데이트레이딩 15:15 강제청산 |
-| 실행 | 주문표(MD/CSV) · 모의 브로커 · 한국투자증권 REST 브로커 · 텔레그램 알림 |
+| 실행 | 주문표(MD/CSV) · 모의 브로커 · 한국투자증권 REST 브로커 · 텔레그램 알림 · **카이로스 HTS 화면 세팅값 시트**(`pullback hts`) |
 | 백테스트 | 일봉 스윙 / 분봉 데이 엔진, 보수적 체결 가정, 2026년 세금·수수료·슬리피지 반영, 체결차수별 성과 |
 | 시장 규칙 | 호가단위(2023 개편), 상하한가 ±30%, 동적·정적 VI, KRX/NXT 거래시간, 2026 휴장일 |
 
@@ -47,18 +49,21 @@ pullback backtest --mode swing --provider csv --csv-dir data/sample --start 2025
 pullback backtest --mode day   --provider csv --csv-dir data/sample --start 2026-10-12 --end 2026-10-12
 pullback plan --mode swing --provider csv --csv-dir data/sample --code 900001 --date 2026-10-08
 pullback costs --price 12000 --qty 300 --market KOSDAQ
+pullback hts --mode swing                         # 카이로스 HTS 화면 세팅값 시트 (output/hts_settings_swing.md)
+pullback backtest --mode swing --provider csv --csv-dir data/sample --start 2025-11-01 --end 2026-10-08 --weights 1,2,3,4   # 비중 비교
 ```
 
 `scan` 은 `output/orders_YYYYMMDD_<mode>.md/.csv` 주문표를 만듭니다. 예:
 
 ```
 | 차수 | 비중 | 매수가 | 수량 | 금액 |
-| 1차 | 10% | 11,130 | 27 | 300,510 |
-| 2차 | 20% | 11,010 | 55 | 605,550 |
-| 3차 | 30% | 10,900 | 82 | 893,800 |
-| 4차 | 40% | 10,800 | 111 | 1,198,800 |
-- 손절가 10,630원 (전량 체결 시 최대손실 75,625원 = 계좌 0.76%)
-- 1차 목표 11,380원 (50% 청산) / 2차 목표 11,940원
+| 1차 | 40% | 43,700 | 23 | 1,005,100 |
+| 2차 | 30% | 43,150 | 17 | 733,550 |
+| 3차 | 20% | 42,600 | 11 | 468,600 |
+| 4차 | 10% | 42,100 | 7 | 294,700 |
+- 손절가 41,450원 (전량 체결 시 최대손실 97,850원 = 계좌 0.98%)
+- 손절 시 손실(체결 차수별): 1차까지 51,750원 / 2차까지 80,650원 / 3차까지 93,300원 / 4차까지 97,850원
+- 1차 목표 45,950원 (50% 청산) / 2차 목표 46,500원
 ```
 
 ## 4. 실데이터로 쓰기
@@ -92,11 +97,12 @@ pullback live --mode day --provider naver --broker sheet --poll 60   # 장중 �
 5. **지지** — PL 이 MA5/10/20(데이: MA5/20, VWAP) 위 또는 허용오차 안, 종가가 MA20 위 유지
 6. **트리거** — `confirm`: 마지막 봉이 양봉 + 직전봉 고가 돌파 + 거래량 ≥ 직전봉 × 1.2, 그리고 아직 눌림의 60% 이상 회복하지 않음(추격 방지). `anticipate`: 트리거 없이 지지선 예약매수
 
-### 5.2 1:2:3:4 사다리 (`strategy/sizing.py`)
+### 5.2 분할매수 사다리 (`strategy/sizing.py`) — 기본 4:3:2:1
 - 1차가 = 확인봉 종가(데이: 다음 봉 시가 시장가), 4차가 = 눌림 저점 + 1틱, 2·3차는 그 사이 균등 (`range` 모드)
 - 손절가 = min(눌림 저점 × (1−1%), 4차가 × (1−1.5%)) → 호가단위 내림
 - 평단(전량 체결) = Σ(가격×비중). **총수량 = 계좌 × 리스크% ÷ (평단 − 손절가)**, 종목당 최대 투자금으로 상한
-- 수량 배분 = 총수량 × {0.1, 0.2, 0.3, 0.4}
+- 수량 배분 = 총수량 × {0.4, 0.3, 0.2, 0.1}. 확인봉 근처에서 가장 많이, 깊이 밀릴수록 적게. 손절은 사다리 전부를 지나야 걸리므로 **지는 거래의 손실은 비중과 무관하게 계좌의 1%** 이고, 비중은 이기는 거래에서 얼마나 들고 있느냐만 바꿉니다. 얕은 반등이 깊은 반등보다 흔하므로 앞쪽에 비중을 둡니다. `ladder.weights` 로 변경 가능하며 `pullback backtest --weights 1,2,3,4` 로 비교할 수 있습니다.
+- 주문표에 **체결 차수별 손절 손실**(1차까지/2차까지/…)을 함께 표시
 - 목표: 직전 고점과 "평단 + 2R" 중 가까운 쪽이 1차(50% 청산 후 손절을 평단으로), 먼 쪽이 2차
 - 무효화 규칙: 손절 이탈 시 전량 매도 + 사다리 취소 / 1차 목표 도달 시 미체결 사다리 취소 / 유효기간(3거래일, 데이 60분) 경과 시 취소
 
@@ -113,8 +119,9 @@ pullback backtest   [--mode ...] --start D --end D [--codes ...]
 pullback live       [--mode ...] [--broker sheet|paper|kis] [--poll 60]
 pullback costs      --price 10000 --qty 100 --market KOSDAQ
 pullback config                                                     적용 설정 출력
+pullback hts        [--mode ...]                                    카이로스 HTS 화면 세팅값 시트 (output/hts_settings_<mode>.md)
 pullback sample                                                     합성 샘플 데이터
-공통: --config, --provider, --csv-dir, --equity
+공통: --config, --provider, --csv-dir, --equity, --weights 4,3,2,1
 ```
 
 ## 7. 프로젝트 구조
@@ -126,7 +133,7 @@ pullback_trader/
   data/                base(표준 스키마) csv naver pykrx fdr kis_client kis_provider cache
   screener/universe.py 유니버스 필터
   strategy/            indicators pullback(셋업 감지) sizing(1:2:3:4 사다리·수량)
-  execution/           base paper(모의) order_sheet(주문표) kis_broker
+  execution/           base paper(모의) order_sheet(주문표) kis_broker hts_settings(HTS 세팅 시트)
   backtest/            engine(PositionSim·Swing·Day) report
   live/                runner(Scanner·LiveRunner) alerts
   cli.py

@@ -23,8 +23,12 @@ class FilterResult:
 
 
 class UniverseFilter:
-    def __init__(self, cfg: UniverseConfig):
+    def __init__(self, cfg: UniverseConfig, mode: Optional[str] = None):
         self.cfg = cfg
+        self.mode = mode
+        day = mode == "day"
+        self.min_market_cap = cfg.day_min_market_cap if (day and cfg.day_min_market_cap) else cfg.min_market_cap
+        self.min_avg_turnover = cfg.day_min_avg_turnover if (day and cfg.day_min_avg_turnover) else cfg.min_avg_turnover
         self._name_patterns = [re.compile(p) for p in cfg.exclude_name_regex]
         self.manual_exclusions: Set[str] = self._load_exclusions(cfg.exclusion_file)
 
@@ -77,18 +81,19 @@ class UniverseFilter:
         drop(df["name"].astype(str).map(self.name_excluded), "종목명패턴(스팩/우선주/ETF 등)")
         drop(df["flags"].astype(str).map(lambda f: self.flags_excluded(f) is not None), "상태플래그(관리/경고/정지)")
         cap = pd.to_numeric(df["market_cap"], errors="coerce")
-        drop(cap.isna() | (cap < self.cfg.min_market_cap), f"시가총액<{self.cfg.min_market_cap/1e8:.0f}억")
+        if self.min_market_cap > 0:
+            drop(cap.isna() | (cap < self.min_market_cap), f"시가총액<{self.min_market_cap/1e8:.0f}억")
         close = pd.to_numeric(df["close"], errors="coerce")
         if self.cfg.min_price > 0:
             drop(close.notna() & (close < self.cfg.min_price), f"주가<{self.cfg.min_price:,}원")
         if self.cfg.max_price > 0:
             drop(close.notna() & (close > self.cfg.max_price), f"주가>{self.cfg.max_price:,}원")
-        if self.cfg.min_avg_turnover > 0:
+        if self.min_avg_turnover > 0:
             if avg_turnover is not None:
                 t = df["code"].map(avg_turnover)
             else:
                 t = pd.to_numeric(df["turnover"], errors="coerce")
-            drop(t.isna() | (t < self.cfg.min_avg_turnover), f"거래대금<{self.cfg.min_avg_turnover/1e8:.0f}억")
+            drop(t.isna() | (t < self.min_avg_turnover), f"거래대금<{self.min_avg_turnover/1e8:.0f}억")
         if listing_days is not None and self.cfg.min_listing_days > 0:
             ld = df["code"].map(listing_days)
             drop(ld.notna() & (ld < self.cfg.min_listing_days), f"상장{self.cfg.min_listing_days}일미만")

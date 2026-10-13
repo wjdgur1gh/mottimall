@@ -7,6 +7,7 @@
   pullback live       [--mode ...] [--poll 60]            장중 루프 (sheet/paper/kis)
   pullback costs      --price 10000 --qty 100 --market KOSDAQ
   pullback config                                         적용 설정 출력
+  pullback hts        [--mode ...]                        카이로스 HTS 화면 세팅값 시트
   pullback sample                                         합성 샘플 데이터 생성
 """
 from __future__ import annotations
@@ -44,6 +45,10 @@ def _cfg(args) -> AppConfig:
         cfg.risk.account_equity = int(args.equity)
     if getattr(args, "broker", None):
         cfg.broker.mode = args.broker
+    if getattr(args, "weights", None):
+        cfg.ladder.weights = [float(x) for x in args.weights.replace(":", ",").split(",")]
+        from .config import validate
+        validate(cfg)
     return cfg
 
 
@@ -230,6 +235,15 @@ def cmd_config(args) -> int:
     return 0
 
 
+def cmd_hts(args) -> int:
+    from .execution.hts_settings import render_hts_settings, save_hts_settings
+    cfg = _cfg(args)
+    print(render_hts_settings(cfg))
+    p = save_hts_settings(cfg, cfg.output_dir)
+    print(f"저장: {p}")
+    return 0
+
+
 def cmd_sample(args) -> int:
     import runpy
     script = Path(__file__).resolve().parents[1] / "scripts" / "make_sample_data.py"
@@ -250,6 +264,7 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--provider", choices=["csv", "naver", "pykrx", "fdr", "kis"])
         sp.add_argument("--csv-dir")
         sp.add_argument("--equity", type=float, help="계좌 자산(원)")
+        sp.add_argument("--weights", help="분할 비중, 예: 4,3,2,1 또는 1:2:3:4 (백테스트 비교용)")
         if mode:
             sp.add_argument("--mode", choices=["swing", "day"])
 
@@ -299,6 +314,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("config", help="적용 설정 출력")
     common(sp)
     sp.set_defaults(func=cmd_config)
+
+    sp = sub.add_parser("hts", help="카이로스 HTS 화면 세팅값 시트 생성 (설정값 기반)")
+    common(sp)
+    sp.set_defaults(func=cmd_hts)
 
     sp = sub.add_parser("sample", help="합성 샘플 데이터 생성")
     sp.add_argument("--out", default="data/sample")

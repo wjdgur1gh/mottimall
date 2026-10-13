@@ -353,10 +353,13 @@ class DayBacktester:
                 if slots <= 0:
                     continue
                 cands = []
+                min_intra = cfg.universe.day_min_intraday_turnover
                 for code, df in bars.items():
                     if code in sims or code in traded_today or t not in df.index:
                         continue
                     window = df.loc[:t]
+                    if min_intra > 0 and float(window["value"].sum()) < min_intra:
+                        continue
                     setup = detect_pullback(window, pb, intraday=True, prev_close=self.prev_close(code, date))
                     if setup is not None:
                         cands.append((setup.score, code, setup))

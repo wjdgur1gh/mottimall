@@ -50,7 +50,9 @@ def plan_to_markdown(p: OrderPlan) -> str:
         lines.append(f"| {t.level}차 | {t.weight:.0%} | {_fmt(t.price)}{tag} | {t.qty:,} | {_fmt(t.amount)} |")
     lines.append(f"| 합계 | 100% | 평단 {_fmt(p.avg_price_all)} | {p.total_qty:,} | {_fmt(p.total_amount)} |")
     lines.append("")
-    lines.append(f"- **손절가 {_fmt(p.stop_price)}원** (전량 체결 시 최대손실 {_fmt(p.risk_amount_all)}원 = 계좌 {p.risk_pct_all:.2f}%, 1차만 체결 시 {_fmt(p.risk_amount_first)}원)")
+    lines.append(f"- **손절가 {_fmt(p.stop_price)}원** (전량 체결 시 최대손실 {_fmt(p.risk_amount_all)}원 = 계좌 {p.risk_pct_all:.2f}%)")
+    if p.risk_by_fill:
+        lines.append("- 손절 시 손실(체결 차수별): " + " / ".join(f"{i + 1}차까지 {_fmt(r)}원" for i, r in enumerate(p.risk_by_fill)))
     lines.append(f"- **1차 목표 {_fmt(p.target1_price)}원** ({p.partial_exit_ratio:.0%} 청산, 1차가 대비 손익비 {p.rr_first:.2f}) / **2차 목표 {_fmt(p.target2_price)}원** (평단 대비 손익비 {p.rr_all:.2f})")
     lines.append(f"- 손익분기 상승률(수수료+세금+1틱) ≈ {p.breakeven_pct:.2f}% / 유효기간 {p.valid_until or '-'}")
     for r in p.invalidation_rules():

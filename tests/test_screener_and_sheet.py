@@ -32,6 +32,17 @@ def test_universe_filter_rules(tmp_path):
     r = UniverseFilter(cfg).apply(u)
     assert set(r.passed.code) == {"005930", "000006"}
     assert r.rejected["수동제외"] == 1
+    assert "시가총액<1000억" in r.rejected and "거래대금<50억" in r.rejected
+
+
+def test_universe_filter_day_mode_uses_stricter_liquidity():
+    u = normalize_universe(pd.DataFrame([
+        {"code": "000010", "name": "스윙만가능", "market": "KOSDAQ", "market_cap": 2e11, "close": 5000, "turnover": 6e9, "flags": ""},
+        {"code": "000011", "name": "데이가능", "market": "KOSDAQ", "market_cap": 2e11, "close": 5000, "turnover": 2e10, "flags": ""},
+    ]))
+    cfg = UniverseConfig(exclusion_file="/nonexistent")
+    assert set(UniverseFilter(cfg, "swing").apply(u).passed.code) == {"000010", "000011"}
+    assert set(UniverseFilter(cfg, "day").apply(u).passed.code) == {"000011"}
 
 
 def test_order_sheet_and_paper_broker(sample_dir, cfg, tmp_path):

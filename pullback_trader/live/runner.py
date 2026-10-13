@@ -41,7 +41,7 @@ class Scanner:
         self.cfg = cfg
         self.provider = provider or make_provider(cfg)
         self.cache = cache or BarCache(cfg.data.cache_dir)
-        self.filter = UniverseFilter(cfg.universe)
+        self.filter = UniverseFilter(cfg.universe, cfg.mode)
         self.calendar = KrxCalendar(cfg.holidays)
 
     # ------------------------------------------------------------ data
@@ -127,6 +127,10 @@ class Scanner:
             m = m.loc[m.index + pd.Timedelta(minutes=pb.bar_minutes) <= pd.Timestamp(now)]
             if len(m) == 0:
                 reasons[row.code] = ["완료된 분봉 없음"]
+                continue
+            min_intra = self.cfg.universe.day_min_intraday_turnover
+            if min_intra > 0 and float(m["value"].sum()) < min_intra:
+                reasons[row.code] = [f"당일 누적 거래대금<{min_intra/1e8:.0f}억"]
                 continue
             prev_close = None
             d = self.load_daily(row.code, date - dt.timedelta(days=1))

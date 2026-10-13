@@ -49,8 +49,11 @@ def test_ladder_weights_and_risk(sample_dir, cfg):
     assert plan.stop_price < prices[-1] and plan.stop_price < s.pullback_low
     q = [t.qty for t in plan.tranches]
     total = sum(q)
-    for i, w in enumerate([1, 2, 3, 4]):
-        assert abs(q[i] / total - w / 10) < 0.03
+    for i, w in enumerate(cfg.ladder.weights):
+        assert abs(q[i] / total - w / sum(cfg.ladder.weights)) < 0.03
+    assert plan.risk_by_fill[-1] == pytest.approx(plan.risk_amount_all)
+    assert plan.risk_by_fill == sorted(plan.risk_by_fill)
+    assert not any("역피라미드" in w for w in plan.warnings)
     # 전량 체결 후 손절 시 손실 ≈ 계좌의 1% (수량 정수화로 약간 작음)
     assert 0.9 <= plan.risk_pct_all <= 1.0
     assert plan.target1_price <= plan.target2_price
@@ -58,10 +61,28 @@ def test_ladder_weights_and_risk(sample_dir, cfg):
     assert abs(sum(t.weight for t in plan.tranches) - 1) < 1e-9
 
 
+def test_inverted_pyramid_warns_and_keeps_risk(sample_dir, cfg):
+    s = detect_pullback(_daily(sample_dir, "900001"), cfg.swing)
+    cfg.risk.max_position_pct = 100
+    cfg.ladder.weights = [1, 2, 3, 4]
+    plan = build_plan(s, cfg, code="900001", market="KOSDAQ", equity=10_000_000)
+    assert any("역피라미드" in w for w in plan.warnings)
+    q = [t.qty for t in plan.tranches]
+    assert q[0] < q[1] < q[2] < q[3]
+    assert 0.9 <= plan.risk_pct_all <= 1.0
+    # 역피라미드는 1차 체결 시 손실이 작고(수량 10%), 정피라미드는 1차에서 수량 40%
+    cfg.ladder.weights = [4, 3, 2, 1]
+    plan2 = build_plan(s, cfg, code="900001", market="KOSDAQ", equity=10_000_000)
+    assert plan2.risk_by_fill[0] > plan.risk_by_fill[0]
+    assert plan2.risk_amount_all == pytest.approx(plan.risk_amount_all, rel=0.1)
+
+
 def test_position_cap_binds(sample_dir, cfg):
     s = detect_pullback(_daily(sample_dir, "900002"), cfg.swing)
+    cfg.risk.max_position_pct = 5
     plan = build_plan(s, cfg, code="900002", market="KOSDAQ", equity=10_000_000)
-    assert plan.total_amount <= 10_000_000 * cfg.risk.max_position_pct / 100 * 1.001
+    assert plan.total_amount <= 10_000_000 * 0.05 * 1.001
+    assert plan.risk_pct_all < cfg.risk.risk_per_trade_pct
     assert any("최대 투자금" in w for w in plan.warnings)
 
 

@@ -1,6 +1,7 @@
 import datetime as dt
 
 import pandas as pd
+import pytest
 
 from pullback_trader.backtest import DayBacktester, PositionSim, SwingBacktester, summarize
 from pullback_trader.data.csv_provider import CsvProvider
@@ -70,7 +71,7 @@ def test_swing_backtest_runs(sample_dir, cfg):
     res = SwingBacktester(cfg, daily, meta).run(dt.date(2025, 11, 1), dt.date(2026, 10, 8))
     s = summarize(res)
     assert res.signals >= 1
-    assert s["final_equity"] == res.initial_equity + sum(t.net_pnl for t in res.trades)
+    assert s["final_equity"] == pytest.approx(res.initial_equity + sum(t.net_pnl for t in res.trades))
     assert len(res.equity_curve) > 100
     for t in res.trades:
         assert 1 <= t.tranches_filled <= 4 and t.exit_reason in {"stop", "breakeven_stop", "target1", "target2", "time", "end"}
