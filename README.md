@@ -27,6 +27,8 @@
 
 ## 2. 설치
 
+**윈도우에서 Git/Python 설정이 처음이면 [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md)** 를 따르세요. ZIP 으로 받아 `setup.bat` 더블클릭 → 이후 `run.bat scan --mode swing` 처럼 실행합니다.
+
 ```bash
 git clone <this repo> && cd mottimall
 python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
