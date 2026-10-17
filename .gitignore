@@ -17,3 +17,7 @@ data/csv/*
 data/sample/
 state/
 *.log
+
+# game_bot
+game_bot/screenshots/
+game_bot/debug/

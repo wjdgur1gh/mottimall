@@ -20,12 +20,14 @@ dependencies = [
 krx = ["pykrx>=1.0.45"]
 fdr = ["finance-datareader>=0.9.90"]
 dev = ["pytest>=7.0"]
+game = ["opencv-python>=4.8", "numpy>=1.24", "PyYAML>=6.0"]
 
 [project.scripts]
 pullback = "pullback_trader.cli:main"
+gamebot = "game_bot.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["pullback_trader*"]
+include = ["pullback_trader*", "game_bot*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

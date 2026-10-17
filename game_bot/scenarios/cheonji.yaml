@@ -1,0 +1,93 @@
+# =====================================================================
+#  천지명장전 (Android 패키지: com.yunbu.xgz.free.kr) 반복 전투 시나리오 뼈대
+# =====================================================================
+# 이 파일의 image: 에 적힌 템플릿 PNG 는 "본인 휴대폰 화면" 에서 직접 잘라 넣어야 합니다.
+# (게임 UI 는 해상도·버전마다 달라서 미리 넣어 둘 수 없습니다.)
+#
+#   1) gamebot pick -o game_bot/templates/cheonji     ← 휴대폰 화면이 창으로 뜸
+#   2) 버튼을 드래그로 감싸고  s  → 아래 파일명과 같은 이름으로 저장
+#   3) gamebot check game_bot/scenarios/cheonji.yaml  ← 빠진 템플릿 확인
+#   4) gamebot run   game_bot/scenarios/cheonji.yaml --dry-run -v   ← 터치 없이 인식만
+#   5) gamebot run   game_bot/scenarios/cheonji.yaml
+#
+# 어떤 템플릿을 만들어야 하는지는 game_bot/templates/cheonji/README.md 참고.
+
+name: 천지명장전 반복 전투
+package: com.yunbu.xgz.free.kr      # run 시작 시 게임을 앞으로 띄움 (이미 실행 중이면 그대로)
+templates_dir: ../templates/cheonji
+interval: 1.0                       # 화면 확인 주기(초). 전투가 빠르면 0.5 정도로
+
+# screen: [1080, 2400]   # 템플릿을 캡처한 기기 해상도 (gamebot size 로 확인).
+#                        # 같은 기기에서만 쓰면 비워 두세요. 다른 해상도 기기에서 돌릴 때만 필요.
+# stop_after: 7200       # 2시간 뒤 자동 종료 (초)
+idle_limit: 180          # 아무 규칙도 180루프(≈3분) 연속으로 안 맞으면 종료 — 예상 밖 화면에서 무한 대기 방지
+                         # (when: always 규칙을 켜 두면 idle 이 쌓이지 않아 이 값은 무시됩니다)
+
+rules:
+  # ---------- 방해 요소: 가장 먼저 처리 (priority 높을수록 먼저 검사) ----------
+  - name: 팝업 닫기(X)
+    priority: 100
+    when: { image: close.png, threshold: 0.85 }
+    do:
+      - tap: match
+      - wait: 0.5
+
+  - name: 접속 끊김 재접속
+    priority: 95
+    when: { image: reconnect.png }
+    do:
+      - tap: match
+      - wait: 5
+
+  - name: 확인 버튼
+    priority: 90
+    when: { image: confirm.png, threshold: 0.85 }
+    do:
+      - tap: match
+      - wait: 0.5
+
+  # ---------- 안전장치 ----------
+  - name: 패배 감지 시 중지
+    priority: 80
+    when: { image: defeat.png }
+    do:
+      - log: "패배 화면이 감지되어 봇을 멈춥니다. 편성/레벨을 확인하세요."
+      - screenshot: ../screenshots/defeat_%Y%m%d_%H%M%S.png
+      - stop: 패배 감지
+
+  # ---------- 전투 ----------
+  - name: 전투 승리 결과 닫기
+    priority: 60
+    when: { image: victory.png }
+    do:
+      - wait: 1
+      - tap: match          # 결과창은 보통 아무 곳이나 눌러 닫힘. 안 닫히면 아래 고정 좌표로
+      # - tap: [540, 2000]  # pick 으로 찍은 좌표로 바꾸세요
+
+  - name: 전투 중 자동전투 켜기
+    priority: 50
+    cooldown: 3
+    when: { image: auto_off.png, threshold: 0.85 }   # 자동전투 버튼이 "꺼진" 모양으로 보이면
+    do:
+      - tap: match                                   # 그 버튼을 누른다
+    # 자동 버튼의 켜짐/꺼짐 모양 차이가 거의 없다면 대신 아래처럼 "전투 화면 + 고정 좌표" 로:
+    # when: { image: in_battle.png }
+    # do:
+    #   - tap: [980, 2200]          # gamebot pick 으로 찍은 자동 버튼 좌표
+
+  - name: 다음 전투 시작
+    priority: 40
+    when: { image: battle_start.png }
+    do:
+      - tap: match
+      - wait_for: { image: in_battle.png, timeout: 20 }   # 전투 화면이 뜰 때까지 대기 (실패하면 이 규칙의 남은 동작 취소)
+
+  # ---------- 아무 화면도 못 알아보면 (기본 비활성) ----------
+  - name: 모르는 화면이면 뒤로가기
+    enabled: false          # true 로 바꾸면 켜짐. 켜면 idle_limit 은 동작하지 않음
+    priority: -10
+    cooldown: 30
+    when: always
+    do:
+      - log: "알려진 화면이 없어 뒤로가기 키를 누릅니다"
+      - key: BACK

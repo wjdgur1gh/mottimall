@@ -1,0 +1,26 @@
+# 최소 예시: "버튼이 보이면 누른다" 를 두 개 겹친 형태. 어떤 게임에도 그대로 응용 가능.
+# 템플릿은 game_bot/templates/example/ 에 넣는다 (gamebot pick -o game_bot/templates/example).
+name: 예시 — 보이면 누르기
+templates_dir: ../templates/example
+interval: 1.0
+
+rules:
+  - name: 닫기 버튼
+    priority: 10                 # 팝업은 먼저 치운다
+    when: { image: close.png, threshold: 0.85 }
+    do:
+      - tap: match
+      - wait: 0.5
+
+  - name: 시작 버튼
+    when: start.png              # when: 파일명  은  when: { image: 파일명 }  의 축약형
+    do:
+      - tap: match
+      - wait: 2
+
+  - name: 5초마다 화면 아래쪽 탭 (스킵용)
+    priority: -1
+    cooldown: 5
+    when: always
+    do:
+      - tap: [540, 1900]
